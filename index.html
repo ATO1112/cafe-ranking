@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>喫茶ランキング</title>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 背景設定（グラデーション） */
+        body {
+            position: relative;
+            background: linear-gradient(135deg, #8B4513 0%, #D2B48C 50%, #F5DEB3 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(139, 69, 19, 0.1) 2px,
+                rgba(139, 69, 19, 0.1) 4px
+            ),
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 20px,
+                rgba(160, 82, 45, 0.1) 20px,
+                rgba(160, 82, 45, 0.1) 22px
+            );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* メインコンテナ */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* アイテム表示 */
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 10px 0;
+            background: linear-gradient(90deg, rgba(255, 248, 220, 0.8), rgba(255, 255, 255, 0.9));
+            padding: 15px 20px;
+            border-radius: 10px;
+            border-left: 5px solid #8B4513;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .item-info {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+        }
+
+        .item-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-right: 15px;
+        }
+
+        .item-count {
+            font-size: 18px;
+            font-weight: bold;
+            color: #8B4513;
+            min-width: 30px;
+        }
+
+        .item-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .item button {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .item .plus {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .item .plus:hover {
+            background: linear-gradient(45deg, #45a049, #3d8b40);
+            transform: scale(1.1);
+        }
+
+        .item .minus {
+            background: linear-gradient(45deg, #f44336, #da190b);
+            color: white;
+        }
+
+        .item .minus:hover {
+            background: linear-gradient(45deg, #da190b, #c41e3a);
+            transform: scale(1.1);
+        }
+
+        h1, h2 {
+            color: #8B4513;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 10px;
+        }
+
+        /* モード表示 */
+        .staff-mode {
+            background: linear-gradient(45deg, #ff6b6b, #ffa8a8);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .customer-mode {
+            background: linear-gradient(45deg, #51cf66, #8ce99a);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(81, 207, 102, 0.3);
+        }
+
+        /* チャート */
+        .chart-container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        #chart {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* データリセットボタン */
+        .reset-button {
+            background: linear-gradient(45deg, #ff9800, #f57c00);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+            transition: all 0.2s;
+        }
+
+        .reset-button:hover {
+            background: linear-gradient(45deg, #f57c00, #ef6c00);
+            transform: translateY(-2px);
+        }
+
+        /* レスポンシブ対応（スマホ重視） */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+                margin: 0;
+            }
+
+            h1 {
+                font-size: 1.8em;
+                margin-bottom: 15px;
+            }
+
+            h2 {
+                font-size: 1.3em;
+                margin-bottom: 15px;
+            }
+
+            .item {
+                padding: 12px 15px;
+                margin: 8px 0;
+                flex-direction: row;
+                align-items: center;
+            }
+
+            .item-name {
+                font-size: 14px;
+                margin-right: 10px;
+                flex: 1;
+                min-width: 0;
+                word-wrap: break-word;
+            }
+
+            .item-count {
+                font-size: 16px;
+                min-width: 40px;
+                text-align: center;
+            }
+
+            .item-controls {
+                gap: 8px;
+                flex-shrink: 0;
+            }
+
+            .item button {
+                width: 35px;
+                height: 35px;
+                font-size: 18px;
+                touch-action: manipulation;
+            }
+
+            .staff-mode, .customer-mode {
+                padding: 12px 15px;
+                margin-bottom: 20px;
+                font-size: 14px;
+            }
+
+            .chart-container {
+                padding: 15px;
+                margin-top: 20px;
+            }
+
+            #chart {
+                width: 100% !important;
+                height: 300px !important;
+            }
+
+            .reset-button {
+                padding: 8px 15px;
+                font-size: 14px;
+                margin-top: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .item-name {
+                font-size: 13px;
+            }
+
+            .item button {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+
+            #chart {
+                height: 250px !important;
+            }
+        }
+
+        /* タッチデバイス用の調整 */
+        @media (hover: none) and (pointer: coarse) {
+            .item button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .item:hover {
+                transform: none;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="mode-indicator"></div>
+        <h1>☕ 喫茶ランキング</h1>
+        <div id="item-list"></div>
+        <div class="chart-container">
+            <h2>📊 リアルタイムグラフ</h2>
+            <canvas id="chart" width="600" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // URLパラメータをチェック
+        const urlParams = new URLSearchParams(window.location.search);
+        const isStaff = urlParams.get('mode') === 'staff';
+
+        // 店員モードの場合、簡易パスワードチェック
+        if (isStaff) {
+            const password = prompt("店員用パスワードを入力してください:");
+            if (password !== "cafe123") {
+                alert("パスワードが間違っています");
+                window.location.href = window.location.pathname;
+            }
+        }
+
+        // アイテムリスト
+        const items = [
+            "みたらし団子",
+            "ワッフル",
+            "ゼリー",
+            "夏の夜の夢の惚れ薬",
+            "人魚姫の涙",
+            "不思議の国の魔法",
+            "チャシャネコのお茶会tea"
+        ];
+
+        const itemCounts = {};
+        const itemListDiv = document.getElementById("item-list");
+
+        // タイトルと表示を動的に変更
+        document.title = isStaff ? "喫茶ランキング（店員用）" : "喫茶ランキング（お客様用）";
+
+        // モード表示
+        const modeIndicator = document.getElementById('mode-indicator');
+        if (isStaff) {
+            modeIndicator.innerHTML = '<div class="staff-mode"><strong>🔧 店員モード</strong> - 数量の変更が可能です<br><button class="reset-button" onclick="resetAllData()">データをリセット</button></div>';
+        } else {
+            modeIndicator.innerHTML = '<div class="customer-mode"><strong>👥 お客様用表示</strong> - リアルタイム表示</div>';
+        }
+
+        // ローカルストレージのサポートをチェック
+        function isLocalStorageSupported() {
+            try {
+                const test = 'localStorageTest';
+                localStorage.setItem(test, test);
+                localStorage.removeItem(test);
+                return true;
+            } catch(e) {
+                return false;
+            }
+        }
+
+        // ローカルストレージからデータを読み込み
+        function loadData() {
+            items.forEach(item => {
+                if (isLocalStorageSupported()) {
+                    const savedCount = localStorage.getItem(`cafe_${item}`);
+                    itemCounts[item] = savedCount ? parseInt(savedCount) : 0;
+                } else {
+                    itemCounts[item] = 0;
+                }
+            });
+        }
+
+        // ローカルストレージにデータを保存
+        function saveData(item, count) {
+            if (isLocalStorageSupported()) {
+                try {
+                    localStorage.setItem(`cafe_${item}`, count.toString());
+                } catch(e) {
+                    console.warn('LocalStorage保存に失敗:', e);
+                }
+            }
+            itemCounts[item] = count;
+            updateDisplay();
+        }
+
+        // 表示を更新
+        function updateDisplay() {
+            items.forEach((item, i) => {
+                const countElement = document.getElementById(`count-${item}`);
+                if (countElement) {
+                    countElement.textContent = itemCounts[item];
+                }
+                if (chart && chart.data && chart.data.datasets[0]) {
+                    chart.data.datasets[0].data[i] = itemCounts[item];
+                }
+            });
+            if (chart) {
+                chart.update('none'); // アニメーション無しで更新
+            }
+        }
+
+        // データをリセット
+        function resetAllData() {
+            if (confirm('全てのデータをリセットしますか？')) {
+                items.forEach(item => {
+                    if (isLocalStorageSupported()) {
+                        try {
+                            localStorage.removeItem(`cafe_${item}`);
+                        } catch(e) {
+                            console.warn('LocalStorage削除に失敗:', e);
+                        }
+                    }
+                    itemCounts[item] = 0;
+                });
+                updateDisplay();
+            }
+        }
+
+        // UI作成
+        items.forEach((item, index) => {
+            const div = document.createElement("div");
+            div.className = "item";
+            
+            if (isStaff) {
+                div.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-name">${item}</div>
+                    </div>
+                    <div class="item-controls">
+                        <button class="minus" title="数量を減らす">−</button>
+                        <span class="item-count" id="count-${item}">0</span>
+                        <button class="plus" title="数量を増やす">＋</button>
+                    </div>
+                `;
+            } else {
+                div.innerHTML = `
+                    <div class="item-info">
+                        <div class="item-name">${item}</div>
+                    </div>
+                    <div class="item-count" id="count-${item}">0</div>
+                `;
+            }
+            
+            itemListDiv.appendChild(div);
+
+            // 店員モードの場合のみボタンイベントを設定
+            if (isStaff) {
+                const plusBtn = div.querySelector(".plus");
+                const minusBtn = div.querySelector(".minus");
+                
+                if (plusBtn) {
+                    plusBtn.onclick = () => {
+                        const newCount = itemCounts[item] + 1;
+                        saveData(item, newCount);
+                    };
+                }
+                
+                if (minusBtn) {
+                    minusBtn.onclick = () => {
+                        const newCount = Math.max(0, itemCounts[item] - 1);
+                        saveData(item, newCount);
+                    };
+                }
+            }
+        });
+
+        // Chart.js初期化
+        let chart;
+        const ctx = document.getElementById("chart");
+        if (ctx) {
+            chart = new Chart(ctx.getContext("2d"), {
+                type: 'bar',
+                data: {
+                    labels: items,
+                    datasets: [{
+                        label: '売上数',
+                        data: items.map(item => itemCounts[item]),
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.8)',
+                            'rgba(54, 162, 235, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(153, 102, 255, 0.8)',
+                            'rgba(255, 159, 64, 0.8)',
+                            'rgba(199, 199, 199, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(54, 162, 235, 1)',
+                            'rgba(255, 205, 86, 1)',
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(153, 102, 255, 1)',
+                            'rgba(255, 159, 64, 1)',
+                            'rgba(199, 199, 199, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    devicePixelRatio: window.devicePixelRatio || 1,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: window.innerWidth < 480 ? 12 : 14
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 480 ? 10 : 12
+                                }
+                            }
+                        },
+                        y: {
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 480 ? 10 : 12
+                                }
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 500
+                    }
+                }
+            });
+        }
+
+        // 初期データ読み込み
+        loadData();
+        updateDisplay();
+
+        // お客様用の場合、定期的にデータをチェック（他のタブで更新された場合の対応）
+        if (!isStaff) {
+            // より頻繁にチェック（500ms）
+            setInterval(() => {
+                let hasChanges = false;
+                
+                if (isLocalStorageSupported()) {
+                    items.forEach(item => {
+                        try {
+                            const savedCount = localStorage.getItem(`cafe_${item}`);
+                            const count = savedCount ? parseInt(savedCount) : 0;
+                            if (itemCounts[item] !== count) {
+                                itemCounts[item] = count;
+                                hasChanges = true;
+                            }
+                        } catch(e) {
+                            console.warn('LocalStorage読み込みエラー:', e);
+                        }
+                    });
+                } else {
+                    // localStorageが使えない場合でも定期的に再読み込みを試行
+                    loadData();
+                    hasChanges = true;
+                }
+                
+                if (hasChanges) {
+                    // グラフデータを更新してアニメーションで表示
+                    items.forEach((item, i) => {
+                        const countElement = document.getElementById(`count-${item}`);
+                        if (countElement) {
+                            countElement.textContent = itemCounts[item];
+                        }
+                        if (chart && chart.data && chart.data.datasets[0]) {
+                            chart.data.datasets[0].data[i] = itemCounts[item];
+                        }
+                    });
+                    if (chart) {
+                        chart.update('none'); // モバイルではアニメーションを軽く
+                    }
+                }
+            }, 500); // 500ms毎にチェック（より高頻度）
+        }
+
+        // storage イベントリスナーを追加（他のタブでの変更を即座に反映）
+        if (!isStaff && isLocalStorageSupported()) {
+            window.addEventListener('storage', function(e) {
+                if (e.key && e.key.startsWith('cafe_')) {
+                    const itemName = e.key.replace('cafe_', '');
+                    if (items.includes(itemName)) {
+                        const newValue = e.newValue ? parseInt(e.newValue) : 0;
+                        if (itemCounts[itemName] !== newValue) {
+                            itemCounts[itemName] = newValue;
+                            updateDisplay();
+                        }
+                    }
+                }
+            });
+        }
+
+        // ページの可視性が変わった時の処理（スマホでタブ切り替え時）
+        if (!isStaff) {
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden) {
+                    // ページが再表示された時に強制的に更新
+                    setTimeout(() => {
+                        loadData();
+                        updateDisplay();
+                    }, 100);
+                }
+            });
+        }
+
+        // フォーカス時の更新（スマホでアプリ切り替え時）
+        if (!isStaff) {
+            window.addEventListener('focus', function() {
+                setTimeout(() => {
+                    loadData();
+                    updateDisplay();
+                }, 100);
+            });
+        }
+
+        // オリエンテーション変更時の処理（スマホの回転時）
+        window.addEventListener('orientationchange', function() {
+            setTimeout(() => {
+                if (chart) {
+                    chart.resize();
+                }
+            }, 100);
+        });
+
+        // リサイズ時の処理
+        window.addEventListener('resize', function() {
+            setTimeout(() => {
+                if (chart) {
+                    // フォントサイズを動的に調整
+                    const isMobile = window.innerWidth < 480;
+                    chart.options.plugins.legend.labels.font.size = isMobile ? 12 : 14;
+                    chart.options.scales.x.ticks.font.size = isMobile ? 10 : 12;
+                    chart.options.scales.y.ticks.font.size = isMobile ? 10 : 12;
+                    chart.resize();
+                }
+            }, 100);
+        });
+    </script>
+</body>
+</html>
